@@ -12,18 +12,20 @@ import (
 	"time"
 )
 
+// Server is a container for web server context.  Implements http.Server
+// interface.
 type Server struct {
-	StaticFileServer http.Handler
+	StaticFileServer http.Handler // http.FileServer  used to server static files out of ./assets/static
 }
 
-func NotFound(w http.ResponseWriter, r *http.Request) {
+// notFound dishes out 404 responses.
+func notFound(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<h1>404 - %q is a bogus url sucka.</h1>", r.URL.Path)
 }
 
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// simple url dispatcher but first, we should strip any trailing slashes from
 	// the path.
-
 	if url := r.URL.Path; len(url) > 1 && url[len(url)-1] == '/' {
 		http.Redirect(w, r, url[:len(url)-1], http.StatusMovedPermanently)
 		return
@@ -33,7 +35,6 @@ func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/static/"):
 		s.StaticFileServer.ServeHTTP(w, r)
-		// w.Write([]byte("static file here"))
 
 	case strings.HasPrefix(r.URL.Path, "/b/"):
 		w.Write([]byte("blog post"))
@@ -42,7 +43,7 @@ func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hello, world!"))
 
 	default:
-		NotFound(w, r)
+		notFound(w, r)
 	}
 }
 
@@ -56,7 +57,7 @@ func sig() <-chan os.Signal {
 func main() {
 	svr := http.Server{
 		Handler: Server{
-			StaticFileServer: http.StripPrefix("/static/", http.StaticFileServer(http.Dir("./assets"))),
+			StaticFileServer: http.StripPrefix("/static/", http.FileServer(http.Dir("./assets"))),
 		},
 		Addr:              ":8080",
 		ReadHeaderTimeout: 5 * time.Second,
