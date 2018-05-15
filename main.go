@@ -2,15 +2,23 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
 
-type Server struct{}
+type Server struct {
+	StaticFileServer http.Handler
+}
+
+func NotFound(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "<h1>404 - %q is a bogus url sucka.</h1>", r.URL.Path)
+}
 
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// simple url dispatcher but first, we should strip any trailing slashes from
@@ -18,9 +26,24 @@ func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if url := r.URL.Path; len(url) > 1 && url[len(url)-1] == '/' {
 		http.Redirect(w, r, url[:len(url)-1], http.StatusMovedPermanently)
+		return
 	}
 
-	w.Write([]byte("hello, world!"))
+	// dispatch urls to apropriate handlers.
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/static/"):
+		s.StaticFileServer.ServeHTTP(w, r)
+		// w.Write([]byte("static file here"))
+
+	case strings.HasPrefix(r.URL.Path, "/b/"):
+		w.Write([]byte("blog post"))
+
+	case r.URL.Path == "/":
+		w.Write([]byte("hello, world!"))
+
+	default:
+		NotFound(w, r)
+	}
 }
 
 func sig() <-chan os.Signal {
@@ -32,7 +55,9 @@ func sig() <-chan os.Signal {
 
 func main() {
 	svr := http.Server{
-		Handler:           Server{},
+		Handler: Server{
+			StaticFileServer: http.StripPrefix("/static/", http.StaticFileServer(http.Dir("./assets"))),
+		},
 		Addr:              ":8080",
 		ReadHeaderTimeout: 5 * time.Second,
 	}
