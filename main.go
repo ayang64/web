@@ -23,9 +23,9 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<h1>404 - %q is a bogus url sucka.</h1>", r.URL.Path)
 }
 
+// Simple URL dispatcher.
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// simple url dispatcher but first, we should strip any trailing slashes from
-	// the path.
+	// strip any trailing slashes from the path.
 	if url := r.URL.Path; len(url) > 1 && url[len(url)-1] == '/' {
 		http.Redirect(w, r, url[:len(url)-1], http.StatusMovedPermanently)
 		return
