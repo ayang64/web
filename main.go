@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -10,12 +14,16 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 // Server is a container for web server context.  Implements http.Server
 // interface.
 type Server struct {
 	StaticFileServer http.Handler // http.FileServer  used to server static files out of ./assets/static
+	DB               *sql.DB
+	debug            *log.Logger
 }
 
 // notFound dishes out 404 responses.
@@ -25,6 +33,8 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 
 // Simple URL dispatcher.
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.debug.Printf("handling %q", r.URL.Path)
+
 	// strip any trailing slashes from the path.
 	if url := r.URL.Path; len(url) > 1 && url[len(url)-1] == '/' {
 		http.Redirect(w, r, url[:len(url)-1], http.StatusMovedPermanently)
@@ -55,9 +65,20 @@ func sig() <-chan os.Signal {
 }
 
 func main() {
+	debug := flag.Bool("debug", false, "Generate debug output.")
+	flag.Parse()
+
+	debugWriter := func() io.Writer {
+		if *debug == false {
+			return ioutil.Discard
+		}
+		return os.Stderr
+	}
+
 	svr := http.Server{
 		Handler: Server{
 			StaticFileServer: http.StripPrefix("/static/", http.FileServer(http.Dir("./assets"))),
+			debug:            log.New(debugWriter(), "DEBUG ", log.LstdFlags|log.Lshortfile),
 		},
 		Addr:              ":8080",
 		ReadHeaderTimeout: 5 * time.Second,
