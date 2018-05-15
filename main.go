@@ -13,18 +13,24 @@ import (
 type Server struct{}
 
 func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("HELLO!"))
+	// simple url dispatcher but first, we should strip any trailing slashes from
+	// the path.
+
+	if url := r.URL.Path; len(url) > 1 && url[len(url)-1] == '/' {
+		http.Redirect(w, r, url[:len(url)-1], http.StatusMovedPermanently)
+	}
+
+	w.Write([]byte("hello, world!"))
 }
 
 func sig() <-chan os.Signal {
 	rc := make(chan os.Signal)
-	signal.Notify(rc, syscall.SIGHUP, syscall.SIGINT)
+	signal.Notify(rc, syscall.SIGINT)
 
 	return rc
 }
 
 func main() {
-
 	svr := http.Server{
 		Handler:           Server{},
 		Addr:              ":8080",
@@ -33,9 +39,7 @@ func main() {
 
 	errchan := make(chan error)
 
-	go func() {
-		errchan <- svr.ListenAndServe()
-	}()
+	go func() { errchan <- svr.ListenAndServe() }()
 
 	sigint := sig()
 
