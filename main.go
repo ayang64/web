@@ -96,7 +96,7 @@ func main() {
 			log.Fatal(err)
 
 		case s := <-sigint:
-			log.Printf("received %s; shutting down server.", s)
+			log.Printf("received %s signal; shutting down server.", s)
 			func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
